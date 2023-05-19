@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 
 #ifndef TP3_H
@@ -6,8 +7,16 @@
 
 struct dictionary;
 
+typedef struct dictEntry dictEntry_t;
 typedef struct dictionary dictionary_t;
 typedef void (*destroy_f)(void *);
+
+
+// imprime el diccionario
+void print_dict(dictionary_t* dict);
+
+// funcion de hashing FNV-1a
+uint32_t FNV_hash(const char *key);
 
 /* Crea un nuevo diccionario */
 dictionary_t *dictionary_create(destroy_f destroy);

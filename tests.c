@@ -303,6 +303,7 @@ bool test_fail_insert() {
 int main(void) {
   srand(117);
   int return_code = 0;
+
   return_code += !test_create_and_destroy_dict();    // bien
   return_code += !test_create_failed();   // bien
   return_code += !test_create_dict_nodestroy();   // bien
@@ -311,6 +312,7 @@ int main(void) {
   return_code += !test_pop_get();   // bien
   return_code += !test_get_errcode();   // bien
   return_code += !test_put_NULL();    // bien
+
   // return_code += !test_put_get_delete_loop();    // muchos errores
   // return_code += !test_insert_random_sequence(512, 117, false);
   // return_code += !test_insert_random_sequence(512, 117, true);

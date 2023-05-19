@@ -1,22 +1,22 @@
 #include "tp3.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 
 
-#define TABLE_SIZE 7
+#define TABLE_SIZE 200
 // #define RES_FACT 5
 
 // struct para kev-values individuales
-typedef struct dictEntry{
-  const char* key;
-  void* value;
-} dictEntry_t;
+  struct dictEntry{
+  const char *key;
+  void *value;
+  struct dictEntry *next;
+};
 
 // struct para array de punteros dictEntry
 struct dictionary {
-  dictEntry_t** entries;
+  dictEntry_t **entries;
   uint32_t size;
   uint32_t capacity;
 };
@@ -42,21 +42,22 @@ uint32_t FNV_hash(const char *key) {
   }
   return hash;
 }
-// mejor no usar los __uint... conviene usar uint_t o size_t
 // deberia probar distintas func de hashing y evaluar cual me da mejores resultados
+
+// funcion auxiliar que devuelve el índice
+static uint32_t dictIndex(dictionary_t* dict, const char* key) {
+  uint32_t hash = FNV_hash(key) % dict->capacity;
+  return hash;
+}
 
 // creo un diccionario vacio, usando los structs ya definidos y mallocs, verificando que no haya errores
 dictionary_t *dictionary_create(destroy_f destroy) { 
   dictionary_t* dict = (dictionary_t*) malloc(sizeof(dictionary_t));
-  if (dict == NULL) {
-    return NULL;
-  }
+  if (!dict) return NULL;
   dict->size = 0;
   dict->capacity = TABLE_SIZE;
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
-  if (dict->entries == NULL) {
-    return NULL;
-  }
+  if (!dict->entries) return NULL;
   return dict;
 }
 
@@ -65,7 +66,8 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL || key == NULL) {
     return false;
   }
-  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t* entry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
   if (entry == NULL) {
     return false;
@@ -88,7 +90,8 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
-  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  uint32_t hash = dictIndex(dictionary, key);
   if (dictionary->entries[hash] == NULL || dictionary->entries[hash]->key == NULL) {
     *err = true;
     return NULL;
@@ -97,12 +100,12 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
   return dictionary->entries[hash]->value;
 }
 
-
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
     return false;
   }
-  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  uint32_t hash = dictIndex(dictionary, key);
   if (dictionary->entries[hash] == NULL) {
     return false;
   }
@@ -116,7 +119,8 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
-  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  uint32_t hash = dictIndex(dictionary, key);
   if (dictionary->entries[hash] == NULL) {
     *err = true;
     return NULL;
@@ -130,13 +134,12 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
   return value;
 }
 
-
-
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
     return false;
   }
-  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  uint32_t hash = dictIndex(dictionary, key);
   if (dictionary->entries[hash] == NULL) {
     return false;
   }
@@ -148,7 +151,7 @@ size_t dictionary_size(dictionary_t *dictionary) {
 }
 
 void dictionary_destroy(dictionary_t *dictionary) {
- for (uint32_t i = 0; i < dictionary->capacity; i++) {    // no debería usar el size en vez del capacity? creo que esto tiene sentido porque uso calloc para inicializar el array
+ for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
       free(dictionary->entries[i]); 
