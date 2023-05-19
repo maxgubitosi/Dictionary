@@ -63,26 +63,29 @@ dictionary_t *dictionary_create(destroy_f destroy) {
 
 // inserto un par key-value en el diccionario, verificando que no haya errores
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
-  if (strlen(key) == 0 || dictionary == NULL || key == NULL) {
-    return false;
-  }
-  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  if (strlen(key) == 0 || dictionary == NULL || key == NULL) return false;
   uint32_t hash = dictIndex(dictionary, key);
-  dictEntry_t* entry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
-  if (entry == NULL) {
-    return false;
+
+  dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
+  if (!newEntry) return false;
+  newEntry->key = key;
+  newEntry->value = value;
+  newEntry->next = NULL;
+
+  // chaining
+  if (!dictionary->entries[hash]) {
+    dictionary->entries[hash] = newEntry;
+  } else {
+    dictEntry_t* prev_entry = dictionary->entries[hash];
+    while (prev_entry->next) {
+      prev_entry = prev_entry->next;
+    }
+    prev_entry->next = newEntry;
   }
-  if (dictionary->entries[hash] != NULL) {  // chequear: no se si se usa 0 o NULL
-    return false; // caso a desarrollar: colision
-  }
-  entry->key = key;
-  entry->value = value;
-  dictionary->entries[hash] = entry;
   dictionary->size++;
-  // print_dict(dictionary);
   return true;
 }
-// primera versión, no maneja colisiones
+
 
 
 void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
@@ -90,28 +93,49 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
-  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
   uint32_t hash = dictIndex(dictionary, key);
-  if (dictionary->entries[hash] == NULL || dictionary->entries[hash]->key == NULL) {
+  dictEntry_t *entry = dictionary->entries[hash];
+
+  if (!entry) {
     *err = true;
     return NULL;
   }
-  *err = false;
-  return dictionary->entries[hash]->value;
+
+  while (entry) {
+    if (strcmp(entry->key, key) == 0) {
+      *err = false;
+      return entry->value;
+    }
+    entry = entry->next;
+  }  
+
+  *err = true;
+  return NULL;
 }
 
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
     return false;
   }
-  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
   uint32_t hash = dictIndex(dictionary, key);
-  if (dictionary->entries[hash] == NULL) {
-    return false;
+  dictEntry_t *entry = dictionary->entries[hash];
+  dictEntry_t *prevEntry = NULL;
+
+  while (entry) {
+    if (strcmp(entry->key, key) == 0) {
+      if (!prevEntry) {
+        dictionary->entries[hash] = entry->next;  
+      } else {
+        prevEntry->next = entry->next; 
+      }
+      free(entry);
+      dictionary->size--;
+      return true;
+    }
+    prevEntry = entry;
+    entry = entry->next;
   }
-  free(dictionary->entries[hash]);
-  dictionary->size--;
-  return true;
+  return false;
 }
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
@@ -119,30 +143,37 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
-  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
   uint32_t hash = dictIndex(dictionary, key);
-  if (dictionary->entries[hash] == NULL) {
-    *err = true;
-    return NULL;
+  dictEntry_t *entry = dictionary->entries[hash];
+  dictEntry_t *prevEntry = NULL;
+
+  while (entry != NULL) {
+    if (strcmp(entry->key, key) == 0) {
+      if (prevEntry == NULL) {
+        dictionary->entries[hash] = entry->next;  
+      } else {
+        prevEntry->next = entry->next; 
+      }
+      void* value = entry->value;
+      free(entry);
+      dictionary->size--;
+      *err = false;
+      return value;
+    }
+    prevEntry = entry;
+    entry = entry->next;
   }
-  *err = false;
-  void* value = dictionary->entries[hash]->value;
-  dictionary->entries[hash]->value = NULL; //
-  dictionary->entries[hash]->key = NULL; // estas dos líneas o free
-  // free(dictionary->entries[hash]);
-  dictionary->size--;
-  return value;
+  *err = true;
+  return NULL;
 }
+
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
     return false;
   }
-  // uint32_t hash = FNV_hash(key) % dictionary->capacity;
   uint32_t hash = dictIndex(dictionary, key);
-  if (dictionary->entries[hash] == NULL) {
-    return false;
-  }
+  if (!dictionary->entries[hash]) return false;
   return true;
 }
 
@@ -154,6 +185,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
+      // free((char *) dictionary->entries[i]->key); // esto va con las 3 lineas del put() da un leak de 5 bytes
       free(dictionary->entries[i]); 
     }
   }

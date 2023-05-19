@@ -5,8 +5,6 @@
 #ifndef TP3_H
 #define TP3_H
 
-struct dictionary;
-
 typedef struct dictEntry dictEntry_t;
 typedef struct dictionary dictionary_t;
 typedef void (*destroy_f)(void *);
@@ -17,6 +15,10 @@ void print_dict(dictionary_t* dict);
 
 // funcion de hashing FNV-1a
 uint32_t FNV_hash(const char *key);
+
+// Funcion auxiliar que devuelve el índice
+// utiliza la funcion de hashing FNV-1a para obtener el hash de la clave ingresada
+// static uint32_t dictIndex(dictionary_t* dict, const char* key); comento porque el 'static' da errores
 
 /* Crea un nuevo diccionario */
 dictionary_t *dictionary_create(destroy_f destroy);
