@@ -62,50 +62,99 @@ dictionary_t *dictionary_create(destroy_f destroy) {
 
 // inserto un par key-value en el diccionario, verificando que no haya errores
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
-  uint32_t hash = FNV_hash(key) % dictionary->size;
+  if (strlen(key) == 0 || dictionary == NULL || key == NULL) {
+    return false;
+  }
+  uint32_t hash = FNV_hash(key) % dictionary->capacity;
   dictEntry_t* entry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
   if (entry == NULL) {
     return false;
   }
-  if (dictionary->entries[hash] != NULL) {
+  if (dictionary->entries[hash] != NULL) {  // chequear: no se si se usa 0 o NULL
     return false; // caso a desarrollar: colision
   }
+  entry->key = key;
+  entry->value = value;
   dictionary->entries[hash] = entry;
-  dictionary->entries[hash]->key = key;
-  dictionary->entries[hash]->value = value;
   dictionary->size++;
-  print_dict(dictionary);
+  // print_dict(dictionary);
   return true;
 }
 // primera versión, no maneja colisiones
 
 
 void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
-  return NULL;
-};
+  if (strlen(key) == 0 || dictionary == NULL) {
+    *err = true;
+    return NULL;
+  }
+  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  if (dictionary->entries[hash] == NULL || dictionary->entries[hash]->key == NULL) {
+    *err = true;
+    return NULL;
+  }
+  *err = false;
+  return dictionary->entries[hash]->value;
+}
 
-/* Elimina una clave del diccionario. O(1).
- * Pre-condiciones
- * - El diccionario existe
- * - La clave tiene largo mayor a cero
- * Retorna true si la clave estaba presente y se pudo eliminar, o false
- * de otro modo.
- */
+
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
+  if (strlen(key) == 0 || dictionary == NULL) {
+    return false;
+  }
+  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  if (dictionary->entries[hash] == NULL) {
+    return false;
+  }
+  free(dictionary->entries[hash]);
+  dictionary->size--;
   return true;
 }
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
-  return NULL;
-};
+  if (strlen(key) == 0 || dictionary == NULL) {
+    *err = true;
+    return NULL;
+  }
+  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  if (dictionary->entries[hash] == NULL) {
+    *err = true;
+    return NULL;
+  }
+  *err = false;
+  void* value = dictionary->entries[hash]->value;
+  dictionary->entries[hash]->value = NULL; //
+  dictionary->entries[hash]->key = NULL; // estas dos líneas o free
+  // free(dictionary->entries[hash]);
+  dictionary->size--;
+  return value;
+}
+
+
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
+  if (strlen(key) == 0 || dictionary == NULL) {
+    return false;
+  }
+  uint32_t hash = FNV_hash(key) % dictionary->capacity;
+  if (dictionary->entries[hash] == NULL) {
+    return false;
+  }
   return true;
-};
+}
 
-size_t dictionary_size(dictionary_t *dictionary) { return 0; };
+size_t dictionary_size(dictionary_t *dictionary) {
+  return dictionary->size;
+}
 
 void dictionary_destroy(dictionary_t *dictionary) {
+ for (uint32_t i = 0; i < dictionary->capacity; i++) {    // no debería usar el size en vez del capacity? creo que esto tiene sentido porque uso calloc para inicializar el array
+    dictEntry_t* entry = dictionary->entries[i];
+    if (entry != NULL) {
+      free(dictionary->entries[i]); 
+    }
+  }
   free(dictionary->entries);
   free(dictionary);
 }
+
