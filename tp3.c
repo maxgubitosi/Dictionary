@@ -94,7 +94,13 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
 
   dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
   if (!newEntry) return false;
-  newEntry->key = key;
+  // newEntry->key = key;
+  newEntry->key = (char *)malloc(strlen(key) + 1); //
+  if (!newEntry->key) {
+    free(newEntry);
+    return false;
+  }
+  strcpy((char *)newEntry->key, key); //
   newEntry->value = value;
   dictionary->entries[hash] = newEntry;
   dictionary->size++;
@@ -155,6 +161,7 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     }
     if (strcmp(entry->key, key) == 0) {
       void *value = entry->value;
+      free((char *)entry->key); //
       free(entry);  
       dictionary->entries[rehashed_hash] = NULL;
       dictionary->size--;
@@ -200,6 +207,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
+      free((char *)entry->key); //
       free(entry);
     }
   }
