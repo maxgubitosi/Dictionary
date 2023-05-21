@@ -4,18 +4,18 @@
 #include <string.h>
 
 
-#define TABLE_SIZE 200
+#define TABLE_SIZE 2000
+#define LOAD_FACTOR 0.75
 // #define RES_FACT 5
 
 // struct para kev-values individuales
-  struct dictEntry{
+  typedef struct dictEntry{
   const char *key;
   void *value;
-  struct dictEntry *next;
-};
+} dictEntry_t;
 
 // struct para array de punteros dictEntry
-struct dictionary {
+ struct dictionary {
   dictEntry_t **entries;
   uint32_t size;
   uint32_t capacity;
@@ -42,11 +42,21 @@ uint32_t FNV_hash(const char *key) {
   }
   return hash;
 }
-// deberia probar distintas func de hashing y evaluar cual me da mejores resultados
 
-// funcion auxiliar que devuelve el índice
-static uint32_t dictIndex(dictionary_t* dict, const char* key) {
-  uint32_t hash = FNV_hash(key) % dict->capacity;
+// funcion de Bernstein hashing
+uint32_t Bernstein_hash(const char *key) {
+  uint32_t hash = 5381;
+  const uint8_t *data = (const uint8_t *)key;
+  size_t len = strlen(key);
+  for (size_t i = 0; i < len; i++) {
+    hash = (hash * 33) ^ data[i];
+  }
+  return hash;
+}
+
+// funcion auxiliar que devuelve el índice, recibe una funcion de hashing
+static uint32_t dictIndex(dictionary_t* dict, const char* key, uint32_t (*f_hash)(const char*) ) {
+  uint32_t hash = f_hash(key) % dict->capacity;
   return hash;
 }
 
@@ -57,85 +67,75 @@ dictionary_t *dictionary_create(destroy_f destroy) {
   dict->size = 0;
   dict->capacity = TABLE_SIZE;
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
-  if (!dict->entries) return NULL;
+  if (!dict->entries) {
+    destroy(dict);  // hace falta esto?
+    return NULL;
+  }
   return dict;
 }
 
-// inserto un par key-value en el diccionario, verificando que no haya errores
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL || key == NULL) return false;
-  uint32_t hash = dictIndex(dictionary, key);
+
+  // necesito rehashing?
+  if (dictionary->size >= dictionary->capacity * LOAD_FACTOR) {
+    return false;
+  }
+  uint32_t hash = dictIndex(dictionary, key, FNV_hash);
+  uint32_t d_hash = dictIndex(dictionary, key, Bernstein_hash);
+
+  while (dictionary->entries[hash]) {
+    if (strcmp(dictionary->entries[hash]->key, key) == 0) {
+      dictionary->entries[hash]->value = value;
+      return true;
+    }
+    hash = (hash + d_hash) % dictionary->capacity; 
+  }
 
   dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
   if (!newEntry) return false;
   newEntry->key = key;
   newEntry->value = value;
-  newEntry->next = NULL;
-
-  // chaining
-  if (!dictionary->entries[hash]) {
-    dictionary->entries[hash] = newEntry;
-  } else {
-    dictEntry_t* prev_entry = dictionary->entries[hash];
-    while (prev_entry->next) {
-      prev_entry = prev_entry->next;
-    }
-    prev_entry->next = newEntry;
-  }
+  dictionary->entries[hash] = newEntry;
   dictionary->size++;
   return true;
 }
-
-
 
 void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
   if (strlen(key) == 0 || dictionary == NULL) {
     *err = true;
     return NULL;
   }
-  uint32_t hash = dictIndex(dictionary, key);
+  uint32_t hash = dictIndex(dictionary, key, FNV_hash);
   dictEntry_t *entry = dictionary->entries[hash];
-
-  if (!entry) {
-    *err = true;
-    return NULL;
+  if (entry && strcmp(entry->key, key) == 0) {
+    *err = false;
+    return entry->value;
   }
 
-  while (entry) {
-    if (strcmp(entry->key, key) == 0) {
+  uint32_t d_hash = dictIndex(dictionary, key, Bernstein_hash);
+  uint32_t rehashed_hash = (hash + d_hash) % dictionary->capacity;
+
+  while (rehashed_hash != hash) {
+    entry = dictionary->entries[rehashed_hash];
+    if (entry && strcmp(entry->key, key) == 0) {
       *err = false;
       return entry->value;
     }
-    entry = entry->next;
-  }  
+    rehashed_hash = (rehashed_hash + d_hash) % dictionary->capacity;
+  }
 
   *err = true;
-  return NULL;
+  return NULL; 
 }
 
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
-  if (strlen(key) == 0 || dictionary == NULL) {
-    return false;
-  }
-  uint32_t hash = dictIndex(dictionary, key);
-  dictEntry_t *entry = dictionary->entries[hash];
-  dictEntry_t *prevEntry = NULL;
-
-  while (entry) {
-    if (strcmp(entry->key, key) == 0) {
-      if (!prevEntry) {
-        dictionary->entries[hash] = entry->next;  
-      } else {
-        prevEntry->next = entry->next; 
-      }
-      free(entry);
-      dictionary->size--;
-      return true;
-    }
-    prevEntry = entry;
-    entry = entry->next;
-  }
-  return false;
+  if (strlen(key) == 0 || !dictionary) return false;
+  bool err;
+  void *value = dictionary_pop(dictionary, key, &err);
+  if (err) return false; 
+  free(value);
+  return true;
 }
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
@@ -143,38 +143,53 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
-  uint32_t hash = dictIndex(dictionary, key);
-  dictEntry_t *entry = dictionary->entries[hash];
-  dictEntry_t *prevEntry = NULL;
+  uint32_t hash = dictIndex(dictionary, key, FNV_hash);
+  uint32_t d_hash = dictIndex(dictionary, key, Bernstein_hash);
+  uint32_t rehashed_hash = hash;
 
-  while (entry != NULL) {
+  while (true) {
+    dictEntry_t *entry = dictionary->entries[rehashed_hash];
+    if (entry == NULL) {
+      *err = true;
+      return NULL;  
+    }
     if (strcmp(entry->key, key) == 0) {
-      if (prevEntry == NULL) {
-        dictionary->entries[hash] = entry->next;  
-      } else {
-        prevEntry->next = entry->next; 
-      }
-      void* value = entry->value;
-      free(entry);
+      void *value = entry->value;
+      free(entry);  
+      dictionary->entries[rehashed_hash] = NULL;
       dictionary->size--;
       *err = false;
       return value;
     }
-    prevEntry = entry;
-    entry = entry->next;
+    rehashed_hash = (rehashed_hash + d_hash) % dictionary->capacity;
+    if (rehashed_hash == hash) {
+      *err = true;
+      return NULL;  
+    }
   }
-  *err = true;
-  return NULL;
 }
-
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
     return false;
   }
-  uint32_t hash = dictIndex(dictionary, key);
-  if (!dictionary->entries[hash]) return false;
-  return true;
+  uint32_t hash = dictIndex(dictionary, key, FNV_hash);
+  dictEntry_t *entry = dictionary->entries[hash];
+  if (entry && strcmp(entry->key, key) == 0) {
+    return true;
+  }
+
+  uint32_t d_hash = Bernstein_hash(key) % dictionary->capacity;
+  uint32_t rehashed_hash = (hash + d_hash) % dictionary->capacity;
+
+  while (rehashed_hash != hash) {
+    entry = dictionary->entries[rehashed_hash];
+    if (entry && strcmp(entry->key, key) == 0) {
+      return true;
+    }
+    rehashed_hash = (rehashed_hash + d_hash) % dictionary->capacity;
+  }
+  return false; 
 }
 
 size_t dictionary_size(dictionary_t *dictionary) {
@@ -185,8 +200,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
-      // free((char *) dictionary->entries[i]->key); // esto va con las 3 lineas del put() da un leak de 5 bytes
-      free(dictionary->entries[i]); 
+      free(entry);
     }
   }
   free(dictionary->entries);

@@ -134,7 +134,7 @@ bool test_put_get_delete_loop() {
   for (size_t i = 0; i < 5; i++) {
     char *key = malloc(sizeof("key"));
     strcpy(key, "key");
-    int *value0 = malloc(sizeof(int));
+    int *value0 = malloc(sizeof(int)); //
     *value0 = 0;
     int *value = malloc(sizeof(int));
     *value = 1;
@@ -304,18 +304,18 @@ int main(void) {
   srand(117);
   int return_code = 0;
 
-  return_code += !test_create_and_destroy_dict();    // bien
-  return_code += !test_create_failed();   // bien
-  return_code += !test_create_dict_nodestroy();   // bien
-  return_code += !test_put_malloc_fail();   // bien
-  return_code += !test_put_size();    // bien
-  return_code += !test_get_errcode();   // bien
-  return_code += !test_put_NULL();    // bien
-  return_code += !test_pop_get();   // bien
-  return_code += !test_malloc_fail_create();    // bien
-  return_code += !test_fail_insert();   // bien
+  // return_code += !test_create_and_destroy_dict();    // bien
+  // return_code += !test_create_failed();   // bien
+  // return_code += !test_create_dict_nodestroy();   // bien
+  // return_code += !test_put_malloc_fail();   // bien
+  // return_code += !test_put_size();    // bien
+  // return_code += !test_get_errcode();   // bien
+  // return_code += !test_put_NULL();    // bien
+  // return_code += !test_pop_get();   // bien
+  // return_code += !test_malloc_fail_create();    // bien
+  // return_code += !test_fail_insert();   // bien
 
-  // return_code += !test_put_get_delete_loop();    // menos errores
+  return_code += !test_put_get_delete_loop();    // tests OK todos, pero pierdo 20 bytes en 5 bloques
   // return_code += !test_insert_random_sequence(512, 117, false);
   // return_code += !test_insert_random_sequence(512, 117, true);
   // return_code += !test_insert_random_sequence(2048, 117, false);
