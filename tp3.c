@@ -62,25 +62,28 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key, uint32_t (*f_hash
 
 // creo un diccionario vacio, usando los structs ya definidos y mallocs, verificando que no haya errores
 dictionary_t *dictionary_create(destroy_f destroy) { 
-  dictionary_t* dict = (dictionary_t*) malloc(sizeof(dictionary_t));
+  dictionary_t *dict = (dictionary_t*) malloc(sizeof(dictionary_t));
   if (!dict) return NULL;
   dict->size = 0;
   dict->capacity = TABLE_SIZE;
+
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
   if (!dict->entries) {
-    destroy(dict);  // hace falta esto?
+    free(dict);  // hace falta esto?
     return NULL;
   }
   return dict;
 }
 
+// todavía pueden haber mejoras aca. falta rehashing
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL || key == NULL) return false;
-
+  
   // necesito rehashing?
   if (dictionary->size >= dictionary->capacity * LOAD_FACTOR) {
     return false;
   }
+
   uint32_t hash = dictIndex(dictionary, key, FNV_hash);
   uint32_t d_hash = dictIndex(dictionary, key, Bernstein_hash);
 
@@ -132,7 +135,7 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
   }
 
   *err = true;
-  return NULL; 
+  return NULL;
 }
 
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
@@ -161,8 +164,9 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     }
     if (strcmp(entry->key, key) == 0) {
       void *value = entry->value;
+      // free((char *)entry->value); // // mal
       free((char *)entry->key); //
-      free(entry);  
+      free(entry);
       dictionary->entries[rehashed_hash] = NULL;
       dictionary->size--;
       *err = false;
@@ -170,11 +174,14 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     }
     rehashed_hash = (rehashed_hash + d_hash) % dictionary->capacity;
     if (rehashed_hash == hash) {
-      *err = true;
-      return NULL;  
+      return NULL;
     }
   }
+
+  *err = true;
+  return NULL;
 }
+
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
@@ -185,19 +192,9 @@ bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (entry && strcmp(entry->key, key) == 0) {
     return true;
   }
-
-  uint32_t d_hash = Bernstein_hash(key) % dictionary->capacity;
-  uint32_t rehashed_hash = (hash + d_hash) % dictionary->capacity;
-
-  while (rehashed_hash != hash) {
-    entry = dictionary->entries[rehashed_hash];
-    if (entry && strcmp(entry->key, key) == 0) {
-      return true;
-    }
-    rehashed_hash = (rehashed_hash + d_hash) % dictionary->capacity;
-  }
-  return false; 
+  return false;
 }
+
 
 size_t dictionary_size(dictionary_t *dictionary) {
   return dictionary->size;
