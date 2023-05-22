@@ -183,17 +183,11 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
   return NULL;
 }
 
-
+// reutilizo la funcion get() para ver si la clave está en el diccionario
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
-  if (strlen(key) == 0 || dictionary == NULL) {
-    return false;
-  }
-  uint32_t hash = dictIndex(dictionary, key, FNV_hash);
-  dictEntry_t *entry = dictionary->entries[hash];
-  if (entry && strcmp(entry->key, key) == 0) {
-    return true;
-  }
-  return false;
+  bool err = false;
+  void *value = dictionary_get(dictionary, key, &err);
+  return !err && value != NULL;
 }
 
 
