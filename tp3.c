@@ -89,6 +89,7 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
 
   while (dictionary->entries[hash]) {
     if (strcmp(dictionary->entries[hash]->key, key) == 0) {
+      free(dictionary->entries[hash]->value); // 
       dictionary->entries[hash]->value = value;
       return true;
     }
