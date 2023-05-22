@@ -304,7 +304,7 @@ int main(void) {
   srand(117);
   int return_code = 0;
 
-  // return_code += !test_create_and_destroy_dict();
+  // return_code += !test_create_and_destroy_dict();    // TABLE_SIZE 7
   // return_code += !test_create_failed();
   // return_code += !test_create_dict_nodestroy();
   // return_code += !test_put_malloc_fail();
@@ -315,12 +315,12 @@ int main(void) {
   // return_code += !test_fail_insert();
   // return_code += !test_malloc_fail_create();
   // return_code += !test_put_get_delete_loop();
+  return_code += !test_insert_random_sequence(512, 117, false);       // TABLE_SIZE 700
+  // return_code += !test_insert_random_sequence(2048, 117, false);   // TABLE_SIZE 2800
+  // return_code += !test_insert_random_sequence(65536, 117, false);  // TABLE_SIZE 68400
 
-  return_code += !test_insert_random_sequence(512, 117, false);
   // return_code += !test_insert_random_sequence(512, 117, true);
-  // return_code += !test_insert_random_sequence(2048, 117, false);
   // return_code += !test_insert_random_sequence(2048, 117, true);
-  // return_code += !test_insert_random_sequence(65536, 117, false);
   // return_code += !test_insert_random_sequence(65536, 117, true);
   return return_code;
 }

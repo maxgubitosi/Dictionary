@@ -199,6 +199,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
+      free(entry->value);
       free((char *)entry->key); //
       free(entry);
     }
