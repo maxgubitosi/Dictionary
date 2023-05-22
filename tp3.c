@@ -64,29 +64,41 @@ dictionary_t *dictionary_create(destroy_f destroy) {
   return dict;
 }
 
-
-// inserto un par key-value en el diccionario, verificando que no haya errores
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
-  if (strlen(key) == 0 || dictionary == NULL) return false;
+  if (strlen(key) == 0 || dictionary == NULL)
+    return false;
+
   uint32_t hash = dictIndex(dictionary, key);
 
-  dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
-  if (!newEntry) return false;
+  dictEntry_t *entry = dictionary->entries[hash];
+  dictEntry_t *prevEntry = NULL;
+
+  // Search for the matching key
+  while (entry) {
+    if (strcmp(entry->key, key) == 0) {
+      // Key found, replace the value
+      entry->value = value;
+      return true;
+    }
+    prevEntry = entry;
+    entry = entry->next;
+  }
+
+  // Key not found, create a new entry
+  dictEntry_t *newEntry = (dictEntry_t *)malloc(sizeof(dictEntry_t));
+  if (!newEntry)
+    return false;
 
   newEntry->key = key;
   newEntry->value = value;
   newEntry->next = NULL;
 
-  // chaining
-  if (!dictionary->entries[hash]) {
+  // Add the new entry at the end of the chain
+  if (prevEntry)
+    prevEntry->next = newEntry;
+  else
     dictionary->entries[hash] = newEntry;
-  } else {
-    dictEntry_t* prev_entry = dictionary->entries[hash];
-    while (prev_entry->next) {
-      prev_entry = prev_entry->next;
-    }
-    prev_entry->next = newEntry;
-  }
+
   dictionary->size++;
   return true;
 }
@@ -96,9 +108,10 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
+
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
-  dictEntry_t *lastEntry = NULL; 
+
   if (!entry) {
     *err = true;
     return NULL;
@@ -106,67 +119,87 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
 
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
-      lastEntry = entry;  
+      *err = false;
+      return entry->value;
     }
     entry = entry->next;
   }
 
-  if (lastEntry) {
-    *err = false;
-    return lastEntry->value;
-  } else {
-    *err = true;
-    return NULL;
-  }
+  *err = true;
+  return NULL;
 }
+
 
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
   bool err = false;
   void *value = dictionary_pop(dictionary, key, &err);
   if (!value) return false;
+  free(value);
   return true;
 }
+
+// void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
+//   if (strlen(key) == 0 || dictionary == NULL) {
+//     *err = true;
+//     return NULL;
+//   }
+//   uint32_t hash = dictIndex(dictionary, key);
+//   dictEntry_t *entry = dictionary->entries[hash];
+//   dictEntry_t *prevEntry = NULL;
+//   dictEntry_t *lastEntry = NULL;
+
+//   while (entry) {
+//     if (strcmp(entry->key, key) == 0) {
+//       if (prevEntry == NULL) {
+//         dictionary->entries[hash] = entry->next;
+//       } else {
+//         prevEntry->next = entry->next;
+//       }
+//       void *value = entry->value;
+//       free(entry);
+//       dictionary->size--;
+//       *err = false;
+//       if (lastEntry) {
+//         while (lastEntry->next) {
+//           lastEntry = lastEntry->next;
+//         }
+//         return lastEntry->value;
+//       } else {
+//         return value;
+//       }
+//     }
+//     lastEntry = prevEntry;
+//     prevEntry = entry;
+//     entry = entry->next;
+//   }
+//   *err = true;
+//   return NULL;
+// }
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
   if (strlen(key) == 0 || dictionary == NULL) {
     *err = true;
     return NULL;
   }
+  
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
-  dictEntry_t *prevEntry = NULL;
-  dictEntry_t *lastEntry = NULL;
 
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
-      if (prevEntry == NULL) {
-        dictionary->entries[hash] = entry->next;
-      } else {
-        prevEntry->next = entry->next;
-      }
       void *value = entry->value;
+      dictionary->entries[hash] = entry->next;
       free(entry);
       dictionary->size--;
       *err = false;
-      if (lastEntry) {
-        while (lastEntry->next) {
-          lastEntry = lastEntry->next;
-        }
-        return lastEntry->value;
-      } else {
-        return value;
-      }
+      return value;
     }
-    lastEntry = prevEntry;
-    prevEntry = entry;
     entry = entry->next;
   }
+
   *err = true;
   return NULL;
 }
-
-
-
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
