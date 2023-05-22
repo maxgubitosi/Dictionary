@@ -77,6 +77,7 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
       // Key found, replace the value
+      free(entry->value);
       entry->value = value;
       return true;
     }
@@ -189,6 +190,8 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
     if (strcmp(entry->key, key) == 0) {
       void *value = entry->value;
       dictionary->entries[hash] = entry->next;
+      // free((char *)entry->key); //
+      // free(entry->value); //
       free(entry);
       dictionary->size--;
       *err = false;
@@ -220,7 +223,8 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
-      // free((char *) dictionary->entries[i]->key); // esto va con las 3 lineas del put() da un leak de 5 bytes
+      // free((char *) dictionary->entries[i]->key); // esto va con las 3 lineas del put() da un leak de 5 bytes 
+      // free(dictionary->entries[i]->value); //
       free(dictionary->entries[i]); 
     }
   }
