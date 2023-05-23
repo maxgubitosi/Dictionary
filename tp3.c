@@ -152,8 +152,8 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
     hash = (hash + d_hash) % dictionary->capacity; 
   }
 
-  dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
-  if (!newEntry) return false;
+  dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t)); 
+  if (!newEntry) return false; 
   // newEntry->key = key;
   newEntry->key = (char *)malloc(strlen(key) + 1); //
   if (!newEntry->key) {
@@ -267,7 +267,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
-      // free(entry->value); //algunos tests corren con y otros sin esto
+      if (entry->value) free(entry->value); //chequear si no es NULL hace que funcionen todos los tests sin leaks
       free((char *)entry->key); //
       free(entry);
     }
