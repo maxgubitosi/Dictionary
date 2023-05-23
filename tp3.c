@@ -267,7 +267,7 @@ void dictionary_destroy(dictionary_t *dictionary) {
  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     if (entry != NULL) {
-      if (entry->value) free(entry->value); //chequear si no es NULL hace que funcionen todos los tests sin leaks
+      if (entry->value) free(entry->value); //con esto comentado funcionan los 3 primeros tests
       free((char *)entry->key); //
       free(entry);
     }
