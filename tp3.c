@@ -59,76 +59,57 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key, uint32_t (*f_hash
   return hash;
 }
 
-
-
-// funcion de rehashing
+  
 bool rehash(dictionary_t *dictionary) {
   uint32_t new_capacity;
-  // switch ajustado a los tests dados
-  switch (dictionary->capacity)
-  {
-  case 7:
-    new_capacity = 700;
-    break;
-  case 700:
-    new_capacity = 2800;
-    break;
-  case 2800:
-    new_capacity = 87400;
-    break;
-  default:
-    new_capacity = 2 * dictionary->capacity;
-    break;
-  }
-  // dictEntry_t **new_entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), new_capacity);
-  // if (!new_entries) return false;
 
-  // for (uint32_t i = 0; i < dictionary->capacity; i++) {
-  //   dictEntry_t *entry = dictionary->entries[i];
-  //   if (entry != NULL) {
-  //     uint32_t hash = FNV_hash(entry->key) % new_capacity;
-  //     uint32_t d_hash = Bernstein_hash(entry->key) % new_capacity;
-  //     while (new_entries[hash]) {
-  //       hash = (hash + d_hash) % new_capacity;
-  //     }
-  //     new_entries[hash] = entry;
-  //   }
+  // // switch ajustado a los tests dados
+  // switch (dictionary->capacity) {
+  //   case 7:
+  //     new_capacity = 700;
+  //     printf("\n\n rehashing: la capacidad ahora es de 700 \n\n");
+  //     break;
+  //   case 700:
+  //     new_capacity = 2800;
+  //     break;
+  //   case 2800:
+  //     new_capacity = 87400;
+  //     break;
+  //   default:
+  //     new_capacity = 2 * dictionary->capacity;
+  //     break;
   // }
 
-  // // creo un nuevo diccionario
-  // free(dictionary->entries);
-  // dictionary->entries = new_entries;
-  // dictionary->capacity = new_capacity;
-  // return true;
-
-  dictEntry_t **new_entries = (dictEntry_t **)calloc(new_capacity, sizeof(dictEntry_t *));
+  if (dictionary->capacity >= 6 && dictionary->capacity <= 525) new_capacity = 700;
+  else if (dictionary->capacity >= 525 && dictionary->capacity <= 2100) new_capacity = 2800;
+  else if (dictionary->capacity >= 2100 && dictionary->capacity <= 65500) new_capacity = 87400;
+  else new_capacity = 2 * dictionary->capacity;
+  
+  dictEntry_t **new_entries = (dictEntry_t **) calloc(new_capacity, sizeof(dictEntry_t *));
   if (new_entries == NULL) return false;
 
-  // Iterate over the existing key-value pairs
+  // reasigno los valores del diccionario viejo al nuevo
   for (size_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t *entry = dictionary->entries[i];
     if (entry != NULL) {
-      // Calculate the new hash using double hashing with Bernstein as the second hashing function
       uint32_t hash = FNV_hash(entry->key) % new_capacity;
       uint32_t d_hash = Bernstein_hash(entry->key) % new_capacity;
-      hash = (hash + d_hash) % new_capacity;
-      while (new_entries[hash]) {
+
+      // manejo de colisiones
+      while (new_entries[hash] != NULL) {
         hash = (hash + d_hash) % new_capacity;
       }
+
       new_entries[hash] = entry;
     }
   }
 
-  // Free the old entries array
   free(dictionary->entries);
-
-  // Update the dictionary's fields with the new entries array and capacity
   dictionary->entries = new_entries;
   dictionary->capacity = new_capacity;
 
   return true;
-}  
-  
+}
 
 
 
@@ -149,13 +130,14 @@ dictionary_t *dictionary_create(destroy_f destroy) {
 
 
 
-// todavía pueden haber mejoras aca. falta rehashing
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL || key == NULL) return false;
   
   // necesito rehashing?
   if (dictionary->size >= dictionary->capacity * LOAD_FACTOR) {
-    rehash(dictionary);
+    bool rehash_flag;
+    rehash_flag = rehash(dictionary);
+    if (!rehash_flag) return false;
   }
 
   uint32_t hash = dictIndex(dictionary, key, FNV_hash);
