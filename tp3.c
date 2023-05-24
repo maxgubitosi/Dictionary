@@ -4,8 +4,9 @@
 #include <string.h>
 
 
-#define TABLE_SIZE 400
-// #define RES_FACT 5
+#define TABLE_SIZE 50
+#define RES_FACT 5
+#define LOAD_FACT 0.75
 
 // struct para kev-values individuales
   struct dictEntry{
@@ -50,6 +51,29 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key) {
   return hash;
 }
 
+bool rehash(dictionary_t *dictionary) {
+  if (dictionary == NULL) return false;
+  uint32_t newCapacity = dictionary->capacity * RES_FACT;
+  dictEntry_t **newEntries = (dictEntry_t **) calloc(sizeof(dictEntry_t *), newCapacity);
+  if (!newEntries) return false;
+
+  for (uint32_t i = 0; i < dictionary->capacity; i++) {
+    dictEntry_t *entry = dictionary->entries[i];
+    while (entry) {
+      uint32_t hash = FNV_hash(entry->key) % newCapacity;
+      entry->next = newEntries[hash];
+      newEntries[hash] = entry;
+      entry = entry->next;
+    }
+  }
+  free(dictionary->entries);
+  dictionary->entries = newEntries;
+  dictionary->capacity = newCapacity;
+  printf("===========rehashing===========\n\n");
+  return true;
+}
+
+
 // creo un diccionario vacio, usando los structs ya definidos y mallocs, verificando que no haya errores
 dictionary_t *dictionary_create(destroy_f destroy) { 
   dictionary_t* dict = (dictionary_t*) malloc(sizeof(dictionary_t));
@@ -67,6 +91,11 @@ dictionary_t *dictionary_create(destroy_f destroy) {
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL)
     return false;
+
+  // si el size del diccionario está a >=0.75 del capacity hago rehash
+  if (dictionary->size >= dictionary->capacity * LOAD_FACT) {
+    if (!rehash(dictionary)) return false;
+  }
 
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
