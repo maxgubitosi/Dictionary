@@ -4,7 +4,7 @@
 #include <string.h>
 
 
-#define INITIAL_TABLE_SIZE 7
+#define INITIAL_TABLE_SIZE 4000 // estoy poniendo 2000 para no hacer rehash porque no funciona bien todavia
 #define LOAD_FACTOR 0.75
 
 // struct para kev-values individuales
@@ -122,7 +122,7 @@ dictionary_t *dictionary_create(destroy_f destroy) {
 
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
   if (!dict->entries) {
-    free(dict);  // hace falta esto?
+    destroy(dict);  
     return NULL;
   }
   return dict;
