@@ -4,7 +4,7 @@
 #include <string.h>
 
 
-#define INITIAL_TABLE_SIZE 4000 // estoy poniendo 2000 para no hacer rehash porque no funciona bien todavia
+#define INITIAL_TABLE_SIZE 7 // estoy poniendo 2000 para no hacer rehash porque no funciona bien todavia
 #define LOAD_FACTOR 0.75
 
 // struct para kev-values individuales
@@ -80,9 +80,9 @@ bool rehash(dictionary_t *dictionary) {
   //     break;
   // }
 
-  if (dictionary->capacity >= 6 && dictionary->capacity <= 525) new_capacity = 700;
-  else if (dictionary->capacity >= 525 && dictionary->capacity <= 2100) new_capacity = 2800;
-  else if (dictionary->capacity >= 2100 && dictionary->capacity <= 65500) new_capacity = 87400;
+  if (dictionary->capacity >= 6 && dictionary->capacity <= 525) new_capacity = 2000;
+  else if (dictionary->capacity > 525 && dictionary->capacity <= 2100) new_capacity = 12000;
+  else if (dictionary->capacity > 2100 && dictionary->capacity <= 65500) new_capacity = 90000;
   else new_capacity = 2 * dictionary->capacity;
   
   dictEntry_t **new_entries = (dictEntry_t **) calloc(new_capacity, sizeof(dictEntry_t *));
