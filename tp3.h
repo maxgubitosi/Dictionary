@@ -5,7 +5,6 @@
 #ifndef TP3_H
 #define TP3_H
 
-typedef struct dictEntry dictEntry_t;
 typedef struct dictionary dictionary_t;
 typedef void (*destroy_f)(void *);
 
