@@ -4,8 +4,8 @@
 #include <string.h>
 
 
-#define TABLE_SIZE 50
-#define RES_FACT 5
+#define TABLE_SIZE 7
+#define RES_FACT 3
 #define LOAD_FACT 0.75
 
 // struct para kev-values individuales
@@ -95,7 +95,7 @@ bool rehash(dictionary_t *dictionary) {
   dictionary->entries = newEntries;
   dictionary->capacity = newCapacity;
 
-  printf("\n===========rehashing===========\n\n");
+  printf("\n===========rehashing: capacity = %u ===========\n", dictionary->capacity);
   return true;
 }
 
@@ -201,31 +201,45 @@ bool dictionary_delete(dictionary_t *dictionary, const char *key) {
 
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
-  if (strlen(key) == 0 || dictionary == NULL) {
+  if (err == NULL) {
+    // Handle the case where the error pointer is NULL
+    return NULL;
+  }
+
+  if (dictionary == NULL) {
     *err = true;
     return NULL;
   }
-  
+
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
+  dictEntry_t *prevEntry = NULL;
 
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
       void *value = entry->value;
-      dictionary->entries[hash] = entry->next;
-      free((char *)entry->key); //
-      // free(entry->value); //
+
+      if (prevEntry) {
+        prevEntry->next = entry->next;
+      } else {
+        dictionary->entries[hash] = entry->next;
+      }
+
+      free((char *)entry->key);
       free(entry);
       dictionary->size--;
       *err = false;
       return value;
     }
+
+    prevEntry = entry;
     entry = entry->next;
   }
 
   *err = true;
   return NULL;
 }
+
 
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) {
