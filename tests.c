@@ -334,9 +334,9 @@ int main(void) {
   srand(117);
   int return_code = 0;
  
-  // return_code += !test_put_malloc_fail();
-  // return_code += !test_put_size();
-  // return_code += !test_get_errcode();
+  return_code += !test_put_malloc_fail();
+  return_code += !test_put_size();
+  return_code += !test_get_errcode();
 
   return_code += !test_create_and_destroy_dict();
   return_code += !test_create_failed();

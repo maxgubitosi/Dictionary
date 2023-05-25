@@ -20,6 +20,7 @@ struct dictionary {
   dictEntry_t **entries;
   uint32_t size;
   uint32_t capacity;
+  destroy_f destroy;
 };
 
 // funcion auxiliar para imprimir el diccionario
@@ -39,7 +40,6 @@ uint32_t FNV_hash(const char *key) {
   for (size_t i = 0; i < len; i++) {
       hash ^= data[i];
       hash *= FNV_PRIME;
-      // hash %= TABLE_SIZE;  // no hace falta, porque en la función de put() ya se hace
   }
   return hash;
 }
@@ -108,6 +108,7 @@ dictionary_t *dictionary_create(destroy_f destroy) {
   if (!dict) return NULL;
   dict->size = 0;
   dict->capacity = TABLE_SIZE;
+  dict->destroy = destroy;
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
   if (!dict->entries) {
     free(dict); 
@@ -269,7 +270,9 @@ void dictionary_destroy(dictionary_t *dictionary) {
     while (entry != NULL) {
       dictEntry_t* nextEntry = entry->next;
       free((char*)entry->key);
-      free(entry->value);
+      if (dictionary->destroy != NULL) {
+        dictionary->destroy(entry->value);
+      }
       free(entry);
       entry = nextEntry;
     }
@@ -277,11 +280,3 @@ void dictionary_destroy(dictionary_t *dictionary) {
   free(dictionary->entries);
   free(dictionary);
 }
-
-
-/* duda/ idea: el error en test_put_get_delete_loop puede ser que venga del orden
- * en el que se insertan valores en la lista cuando hay colisiones
- * puede ser que quieran que inserte el nuevo primero y mover los ultimos o al revés
- * lo mismo pasa con el get, si voy a buscar a una key, devuelvo el primero que encuentro o el último?
- * creo que lo que tiene sentido es agregar el último al final de la lista y buscar siempre el ultimo
-*/
