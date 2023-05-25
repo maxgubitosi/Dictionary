@@ -16,13 +16,13 @@ bool test_create_and_destroy_dict() {
 }
 
 bool test_create_failed() {
-    printf("========== %s ==========\n", __PRETTY_FUNCTION__);
-    bool tests_result = true;
-    set_malloc_status(false);
-    dictionary_t *dict = dictionary_create(free);
-    set_malloc_status(true);
-    tests_result &= test_assert("El diccionario no fue creado", dict == NULL);
-    return tests_result;
+  printf("========== %s ==========\n", __PRETTY_FUNCTION__);
+  bool tests_result = true;
+  set_malloc_status(false);
+  dictionary_t *dict = dictionary_create(free);
+  set_malloc_status(true);
+  tests_result &= test_assert("El diccionario no fue creado", dict == NULL);
+  return tests_result;
 }
 
 bool test_create_dict_nodestroy() {
@@ -35,29 +35,29 @@ bool test_create_dict_nodestroy() {
 }
 
 bool test_put_malloc_fail() {
-    printf("========== %s ==========\n", __PRETTY_FUNCTION__);
-    bool tests_result = true;
-    dictionary_t *dict = dictionary_create(NULL);
-    tests_result &= test_assert("El tamaño es cero", dictionary_size(dict) == 0);
-    int one = 1, two = 2;
-    tests_result &=
-            test_assert("Se puede insertar key1", dictionary_put(dict, "key1", &one));
-    tests_result &= test_assert("El diccionario contiene key1",
-                                dictionary_contains(dict, "key1"));
-    tests_result &= test_assert("El diccionario no contiene key2",
-                                !dictionary_contains(dict, "key2"));
-    tests_result &= test_assert("El tamaño es uno", dictionary_size(dict) == 1);
-    set_malloc_status(false);
-    tests_result &=
-            test_assert("No se puede insertar key2", !dictionary_put(dict, "key2", &two));
-    set_malloc_status(true);
-    tests_result &= test_assert("El diccionario contiene key1",
-                                dictionary_contains(dict, "key1"));
-    tests_result &= test_assert("El diccionario no contiene key2",
-                                !dictionary_contains(dict, "key2"));
-    tests_result &= test_assert("El tamaño es dos", dictionary_size(dict) == 1);
-    dictionary_destroy(dict);
-    return tests_result;
+  printf("========== %s ==========\n", __PRETTY_FUNCTION__);
+  bool tests_result = true;
+  dictionary_t *dict = dictionary_create(NULL);
+  tests_result &= test_assert("El tamaño es cero", dictionary_size(dict) == 0);
+  int one = 1, two = 2;
+  tests_result &=
+      test_assert("Se puede insertar key1", dictionary_put(dict, "key1", &one));
+  tests_result &= test_assert("El diccionario contiene key1",
+                              dictionary_contains(dict, "key1"));
+  tests_result &= test_assert("El diccionario no contiene key2",
+                              !dictionary_contains(dict, "key2"));
+  tests_result &= test_assert("El tamaño es uno", dictionary_size(dict) == 1);
+  set_malloc_status(false);
+  tests_result &= test_assert("No se puede insertar key2",
+                              !dictionary_put(dict, "key2", &two));
+  set_malloc_status(true);
+  tests_result &= test_assert("El diccionario contiene key1",
+                              dictionary_contains(dict, "key1"));
+  tests_result &= test_assert("El diccionario no contiene key2",
+                              !dictionary_contains(dict, "key2"));
+  tests_result &= test_assert("El tamaño es dos", dictionary_size(dict) == 1);
+  dictionary_destroy(dict);
+  return tests_result;
 }
 
 bool test_put_size() {
@@ -207,8 +207,12 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
   srand(seed);
   bool tests_result = true;
   dictionary_t *dict = dictionary_create(free);
+  size_t repeat_arr_size = 1;
+  int *repeats = calloc(repeat_arr_size, sizeof(int));
+
   bool insert = true;
   bool size_correct = true;
+  size_t uniques = 0;
   for (size_t i = 0; i < n; i++) {
     int random_number = rand();
     int length = snprintf(NULL, 0, "%d", random_number);
@@ -216,8 +220,15 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
     snprintf(str, length + 1, "%d", random_number);
     int *random_number_copy = malloc(sizeof(int));
     *random_number_copy = random_number;
+    // Puede haber claves que se repitan en la secuencia
+    uniques += !dictionary_contains(dict, str);
+    if (dictionary_contains(dict, str)) {
+      repeat_arr_size += 1;
+      repeats = realloc(repeats, repeat_arr_size * sizeof(int));
+      repeats[repeat_arr_size - 1] = random_number;
+    }
     insert &= dictionary_put(dict, str, random_number_copy);
-    size_correct &= (dictionary_size(dict) == i + 1);
+    size_correct &= (dictionary_size(dict) == uniques);
     free(str);
   }
   tests_result &= test_assert("Todas las inserciones fueron exitosas", insert);
@@ -226,8 +237,14 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
   srand(seed);
   bool contains = true;
   bool correct = true;
+  size_t rep_idx = 0;
+
   for (size_t i = 0; i < n; i++) {
     int random_number = rand();
+    if (random_number == repeats[rep_idx]) {
+      rep_idx += 1;
+      continue;
+    }
     int length = snprintf(NULL, 0, "%d", random_number);
     char *str = malloc(length + 1);
     snprintf(str, length + 1, "%d", random_number);
@@ -245,8 +262,20 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
     srand(seed);
     bool delete_ok = true;
     bool delete_size_ok = true;
+    rep_idx = 0;
+    bool first_pass = true;
+
     for (size_t i = 0; i < n; i++) {
       int random_number = rand();
+      if (repeats[rep_idx] == random_number) {
+        if (first_pass) {
+          first_pass = false;
+        } else {
+          printf("Found the %lu-th repeated number\n", rep_idx);
+          rep_idx += 1;
+          continue;
+        }
+      }
       int length = snprintf(NULL, 0, "%d", random_number);
       char *str = malloc(length + 1);
       snprintf(str, length + 1, "%d", random_number);
@@ -255,12 +284,12 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
         printf("No se pudo eliminar la clave %s\n", str);
       }
       delete_ok &= this_delete_ok;
-      bool this_delete_size_ok = dictionary_size(dict) == (n - i - 1);
+      bool this_delete_size_ok =
+          dictionary_size(dict) == (uniques - i - 1 + rep_idx);
       if (!this_delete_size_ok) {
-        printf(
-            "El tamaño luego de borrar es erróneo: se esperaban %lu pero hay "
-            "%lu\n",
-            n - i - 1, dictionary_size(dict));
+        printf("El tamaño luego de borrar es erróneo: se esperaban %lu pero "
+               "hay %lu (%lu)\n",
+               uniques - i - 1 + rep_idx, dictionary_size(dict), rep_idx);
       }
       delete_size_ok &= this_delete_size_ok;
       free(str);
@@ -272,6 +301,7 @@ bool test_insert_random_sequence(size_t n, unsigned int seed, bool delete) {
   }
 
   dictionary_destroy(dict);
+  free(repeats);
   return tests_result;
 }
 
@@ -303,24 +333,32 @@ bool test_fail_insert() {
 int main(void) {
   srand(117);
   int return_code = 0;
+ 
+  return_code += !test_put_malloc_fail();
+  return_code += !test_put_size();
+  return_code += !test_get_errcode();
 
-  return_code += !test_create_and_destroy_dict();    // bien
-  return_code += !test_create_failed();   // bien
-  return_code += !test_create_dict_nodestroy();   // bien
-  return_code += !test_put_malloc_fail();   // bien
-  return_code += !test_put_size();    // bien
-  return_code += !test_get_errcode();   // bien
-  return_code += !test_put_NULL();    // bien
-  return_code += !test_pop_get();   // bien
-  return_code += !test_malloc_fail_create();    // bien
-  return_code += !test_fail_insert();   // bien
+  return_code += !test_create_and_destroy_dict();
+  return_code += !test_create_failed();
+  return_code += !test_create_dict_nodestroy();
+  return_code += !test_pop_get();
+  return_code += !test_put_NULL();
+  return_code += !test_malloc_fail_create();
+  return_code += !test_fail_insert();
+  return_code += !test_put_get_delete_loop();
 
-  // return_code += !test_put_get_delete_loop();    // menos errores
-  // return_code += !test_insert_random_sequence(512, 117, false);
-  // return_code += !test_insert_random_sequence(512, 117, true);
-  // return_code += !test_insert_random_sequence(2048, 117, false);
-  // return_code += !test_insert_random_sequence(2048, 117, true);
-  // return_code += !test_insert_random_sequence(65536, 117, false);
-  // return_code += !test_insert_random_sequence(65536, 117, true);
+  return_code += !test_insert_random_sequence(512, 117, false);
+  return_code += !test_insert_random_sequence(512, 117, true);
+  return_code += !test_insert_random_sequence(2048, 117, false);
+  return_code += !test_insert_random_sequence(2048, 117, true);
+  return_code += !test_insert_random_sequence(65536, 117, false);
+  return_code += !test_insert_random_sequence(65536, 117, true);
+  // return_code += !test_insert_random_sequence(1048576, 117, false);
+
+  if (return_code == 0) {
+    printf("Todo ok!\n");
+  } else {
+    printf("Error code is %d\n", return_code);
+  }
   return return_code;
 }

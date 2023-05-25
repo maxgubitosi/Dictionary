@@ -4,8 +4,9 @@
 #include <string.h>
 
 
-#define TABLE_SIZE 200
-// #define RES_FACT 5
+#define TABLE_SIZE 7
+#define RES_FACT 3
+#define LOAD_FACT 0.75
 
 // struct para kev-values individuales
   struct dictEntry{
@@ -19,6 +20,7 @@ struct dictionary {
   dictEntry_t **entries;
   uint32_t size;
   uint32_t capacity;
+  destroy_f destroy;
 };
 
 // funcion auxiliar para imprimir el diccionario
@@ -38,7 +40,6 @@ uint32_t FNV_hash(const char *key) {
   for (size_t i = 0; i < len; i++) {
       hash ^= data[i];
       hash *= FNV_PRIME;
-      // hash %= TABLE_SIZE;  // no hace falta, porque en la función de put() ya se hace
   }
   return hash;
 }
@@ -50,38 +51,113 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key) {
   return hash;
 }
 
+bool rehash(dictionary_t *dictionary) {
+  if (dictionary == NULL) return false;
+  uint32_t newCapacity = dictionary->capacity * RES_FACT;
+  dictEntry_t **newEntries = (dictEntry_t **)calloc(sizeof(dictEntry_t *), newCapacity);
+  if (!newEntries) return false;
+
+  for (uint32_t i = 0; i < dictionary->capacity; i++) {
+    dictEntry_t *entry = dictionary->entries[i];
+    while (entry) {
+      dictEntry_t *nextEntry = entry->next; // Store the next entry before reassigning
+      uint32_t hash = FNV_hash(entry->key) % newCapacity;
+      entry->next = newEntries[hash];
+      newEntries[hash] = entry;
+      entry = nextEntry; // Move to the next entry
+    }
+  }
+
+  // Update the values in the newEntries array
+  for (uint32_t i = 0; i < newCapacity; i++) {
+    dictEntry_t *entry = newEntries[i];
+    while (entry) {
+      // Reassign the value associated with the key
+      bool err = false;
+      void *value = dictionary_get(dictionary, entry->key, &err);
+      if (!err) {
+        entry->value = value;
+      } else {
+        // Handle the error case where the key is not found in the original dictionary
+        // You can decide how to handle this situation based on your application's logic
+        // printf("Error: Key %s not found in original dictionary\n", entry->key);
+        
+        // no se bien que es este error
+      }
+      entry = entry->next;
+    }
+  }
+
+  // Free the memory of the old entries array
+  free(dictionary->entries);
+
+  // Update the dictionary's entries pointer and capacity
+  dictionary->entries = newEntries;
+  dictionary->capacity = newCapacity;
+
+  printf("\n===========rehashing: capacity = %u ===========\n", dictionary->capacity);
+  return true;
+}
+
+
+
+
 // creo un diccionario vacio, usando los structs ya definidos y mallocs, verificando que no haya errores
 dictionary_t *dictionary_create(destroy_f destroy) { 
   dictionary_t* dict = (dictionary_t*) malloc(sizeof(dictionary_t));
   if (!dict) return NULL;
   dict->size = 0;
   dict->capacity = TABLE_SIZE;
+  dict->destroy = destroy;
   dict->entries = (dictEntry_t**) calloc(sizeof(dictEntry_t*), dict->capacity);
-  if (!dict->entries) return NULL;
+  if (!dict->entries) {
+    free(dict); 
+    return NULL;
+  }
   return dict;
 }
 
-// inserto un par key-value en el diccionario, verificando que no haya errores
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
-  if (strlen(key) == 0 || dictionary == NULL || key == NULL) return false;
-  uint32_t hash = dictIndex(dictionary, key);
+  if (strlen(key) == 0 || dictionary == NULL)
+    return false;
 
-  dictEntry_t* newEntry = (dictEntry_t*) malloc(sizeof(dictEntry_t));
-  if (!newEntry) return false;
-  newEntry->key = key;
+  // si el size del diccionario está a >=0.75 del capacity hago rehash
+  if (dictionary->size >= dictionary->capacity * LOAD_FACT) {
+    if (!rehash(dictionary)) return false;
+  }
+
+  uint32_t hash = dictIndex(dictionary, key);
+  dictEntry_t *entry = dictionary->entries[hash];
+
+  // busco si ya existe la key
+  while (entry) {
+    if (strcmp(entry->key, key) == 0) {
+      // si existe la key, libero el valor anterior y le asigno el nuevo
+      free(entry->value);
+      entry->value = value;
+      return true;
+    }
+    entry = entry->next;
+  }
+
+  // si no existe la key, creo un nuevo entry
+  dictEntry_t *newEntry = (dictEntry_t *)malloc(sizeof(dictEntry_t));
+  if (!newEntry)
+    return false;
+
+  newEntry->key = malloc(strlen(key) + 1);
+  if (!newEntry->key) {
+    free(newEntry);
+    return false;
+  }
+  strcpy((char *)newEntry->key, key);
   newEntry->value = value;
   newEntry->next = NULL;
 
-  // chaining
-  if (!dictionary->entries[hash]) {
-    dictionary->entries[hash] = newEntry;
-  } else {
-    dictEntry_t* prev_entry = dictionary->entries[hash];
-    while (prev_entry->next) {
-      prev_entry = prev_entry->next;
-    }
-    prev_entry->next = newEntry;
-  }
+  // Add the new entry at the beginning of the chain
+  newEntry->next = dictionary->entries[hash];
+  dictionary->entries[hash] = newEntry;
+
   dictionary->size++;
   return true;
 }
@@ -93,6 +169,7 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
     *err = true;
     return NULL;
   }
+
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
 
@@ -107,62 +184,59 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
       return entry->value;
     }
     entry = entry->next;
-  }  
+  }
 
   *err = true;
   return NULL;
 }
 
+
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
-  if (strlen(key) == 0 || dictionary == NULL) {
-    return false;
+  bool err = false;
+  void *value = dictionary_pop(dictionary, key, &err);
+  if (!value) return false;
+  free(value);
+  return true;
+}
+
+
+
+void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
+  if (err == NULL) {
+    // Handle the case where the error pointer is NULL
+    return NULL;
   }
+
+  if (dictionary == NULL) {
+    *err = true;
+    return NULL;
+  }
+
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
   dictEntry_t *prevEntry = NULL;
 
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
-      if (!prevEntry) {
-        dictionary->entries[hash] = entry->next;  
-      } else {
-        prevEntry->next = entry->next; 
-      }
-      free(entry);
-      dictionary->size--;
-      return true;
-    }
-    prevEntry = entry;
-    entry = entry->next;
-  }
-  return false;
-}
+      void *value = entry->value;
 
-void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
-  if (strlen(key) == 0 || dictionary == NULL) {
-    *err = true;
-    return NULL;
-  }
-  uint32_t hash = dictIndex(dictionary, key);
-  dictEntry_t *entry = dictionary->entries[hash];
-  dictEntry_t *prevEntry = NULL;
-
-  while (entry != NULL) {
-    if (strcmp(entry->key, key) == 0) {
-      if (prevEntry == NULL) {
-        dictionary->entries[hash] = entry->next;  
+      if (prevEntry) {
+        prevEntry->next = entry->next;
       } else {
-        prevEntry->next = entry->next; 
+        dictionary->entries[hash] = entry->next;
       }
-      void* value = entry->value;
+
+      free((char *)entry->key);
       free(entry);
       dictionary->size--;
       *err = false;
       return value;
     }
+
     prevEntry = entry;
     entry = entry->next;
   }
+
   *err = true;
   return NULL;
 }
@@ -173,23 +247,36 @@ bool dictionary_contains(dictionary_t *dictionary, const char *key) {
     return false;
   }
   uint32_t hash = dictIndex(dictionary, key);
-  if (!dictionary->entries[hash]) return false;
-  return true;
+  dictEntry_t *entry = dictionary->entries[hash];
+  while (entry) {
+    if (strcmp(entry->key, key) == 0) {
+      return true;
+    }
+    entry = entry->next;
+  }
+  return false;
 }
+
+// alternativa: puedo llamar a dictionary_get() o vice-versa
+// tiene mas sentido al revés, esta función es mas simple: la llamo en el get: si devuelve false cierra y sino hace todo el resto
 
 size_t dictionary_size(dictionary_t *dictionary) {
   return dictionary->size;
 }
 
 void dictionary_destroy(dictionary_t *dictionary) {
- for (uint32_t i = 0; i < dictionary->capacity; i++) {
+  for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
-    if (entry != NULL) {
-      // free((char *) dictionary->entries[i]->key); // esto va con las 3 lineas del put() da un leak de 5 bytes
-      free(dictionary->entries[i]); 
+    while (entry != NULL) {
+      dictEntry_t* nextEntry = entry->next;
+      free((char*)entry->key);
+      if (dictionary->destroy != NULL) {
+        dictionary->destroy(entry->value);
+      }
+      free(entry);
+      entry = nextEntry;
     }
   }
   free(dictionary->entries);
   free(dictionary);
 }
-
