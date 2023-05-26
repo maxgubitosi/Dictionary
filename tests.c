@@ -353,7 +353,7 @@ int main(void) {
   return_code += !test_insert_random_sequence(2048, 117, true);
   return_code += !test_insert_random_sequence(65536, 117, false);
   return_code += !test_insert_random_sequence(65536, 117, true);
-  // return_code += !test_insert_random_sequence(1048576, 117, false);
+  return_code += !test_insert_random_sequence(1048576, 117, false);
 
   if (return_code == 0) {
     printf("Todo ok!\n");
