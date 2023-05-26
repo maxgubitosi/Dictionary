@@ -5,8 +5,9 @@
 
 // defino parametros globales
 #define INITIAL_TABLE_SIZE 7 // comienzo con 7 para los casos de testeo con 5 iteraciones
-#define RES_FACT 5 // nros mas grandes sacrifican complejidad espacial por mejor complejidad temporal
+#define RES_FACT 2 // nros mas grandes sacrifican complejidad espacial por mejor complejidad temporal
 #define LOAD_FACT 0.75 // proporcion comunmente usada y eficiente
+// nota: la versión actual no busca minimizar ninguna de las complejidades mencionadas 
 
 // struct para entradas: key-values individuales
   typedef struct dictEntry{
@@ -23,9 +24,10 @@ struct dictionary {
   destroy_f destroy;
 };
 
+// funcion auxiliar para imprimir el diccionario
 void dictionary_print(dictionary_t *dictionary) {
   if (dictionary == NULL) {
-    printf("Dictionary is NULL\n");
+    printf("NULL\n");
     return;
   }
   for (uint32_t i = 0; i < dictionary->capacity; i++) {
@@ -39,7 +41,7 @@ void dictionary_print(dictionary_t *dictionary) {
   }
 }
 
-// funcion de hashing FNV-1a
+// funcion de hashing FNV-1a (copiada de internet)
 uint32_t FNV_hash(const char *key) {
   uint32_t FNV_OFFSET_BASIS = 2166136261U;
   uint32_t FNV_PRIME = 16777619U;
@@ -63,8 +65,13 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key) {
 }
 
 
-
-// funcion de rehashing, tiene en cuenta los parametros globales definidos
+/* funcion de rehashing, tiene en cuenta los parametros globales definidos
+ * recorre todos los entries del diccionario original y las reasigna en newEntries 
+ * calculado los hashes, con la nueva capacidad del diccionario
+ * recorre newEntries y para cada entry busca el value original usando dictionary_get y lo asigna
+ * libera la memoria del array antiguo y actualiza el puntero entries del diccionario para apuntar a newEntries
+ * reutiliza codigo: función get
+*/
 bool rehash(dictionary_t *dictionary) {
   if (!dictionary) return false;
   uint32_t newCapacity = dictionary->capacity * RES_FACT;
@@ -95,10 +102,10 @@ bool rehash(dictionary_t *dictionary) {
   free(dictionary->entries);
   dictionary->entries = newEntries;
   dictionary->capacity = newCapacity;
-  printf("===========rehashing: capacity = %u ===========\n", dictionary->capacity);
+  // printf("===========rehashing: capacity = %u ===========\n", dictionary->capacity);
   return true;
 }
-
+// nota: no usé la función put en esta implementación para evitar que las funciones se llamen mutuamente
 
 
 // creo un diccionario vacio, usando los structs ya definidos y mallocs, verificando que no haya errores
@@ -116,13 +123,12 @@ dictionary_t *dictionary_create(destroy_f destroy) {
   return dict;
 }
 
-
-
+// uso chaining en el caso de colisiones (agrego la nueva entrada al principio de la lista enlazada)
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL)
     return false;
 
-  // necesita rehash?
+  // chequea si necesita rehashear o no
   if (dictionary->size >= dictionary->capacity * LOAD_FACT) {
     if (!rehash(dictionary)) return false;
   }
@@ -140,7 +146,6 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
     }
     entry = entry->next;
   }
-
   // si no existe la key, creo un nuevo entry
   dictEntry_t *newEntry = (dictEntry_t *)malloc(sizeof(dictEntry_t));
   if (!newEntry)
@@ -162,7 +167,6 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   dictionary->size++;
   return true;
 }
-
 
 
 void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
@@ -188,15 +192,14 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
 }
 
 
-
+// reutiliza codigo: función pop
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
   bool err = false;
   void *value = dictionary_pop(dictionary, key, &err);
   if (!value) return false;
-  free(value);
+  if (dictionary->destroy) free(value);
   return true;
 }
-
 
 
 void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
@@ -233,7 +236,7 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
 }
 
 
-
+// reutiliza código: función get
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
   if (strlen(key) == 0 || dictionary == NULL) return false;
   bool err = false;
@@ -242,27 +245,32 @@ bool dictionary_contains(dictionary_t *dictionary, const char *key) {
 }
 
 
-
 size_t dictionary_size(dictionary_t *dictionary) {
   return dictionary->size;
 }
 
 
-
+/* 
+ * reutiliza código: función delete
+ * bucle for recorre todas las entries
+ * ciclo while recorre las listas enlazadas 
+ * nota: solo en los casos de colisiones hay mas de un elemento
+ * en cada una de estas iteraciones llama a la función delete 
+*/
 void dictionary_destroy(dictionary_t *dictionary) {
-  dictionary_print(dictionary);
+  if (!dictionary) return;
+  // dictionary_print(dictionary);
+  
   for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
-    while (entry != NULL) {
-      dictEntry_t* nextEntry = entry->next;
-      free((char*)entry->key);
-      if (dictionary->destroy != NULL) {
-        dictionary->destroy(entry->value);
-      }
-      free(entry);
+    
+    while (entry) {
+      dictEntry_t *nextEntry = entry->next;
+      dictionary_delete(dictionary, entry->key);
       entry = nextEntry;
     }
   }
+
   free(dictionary->entries);
   free(dictionary);
 }

@@ -334,26 +334,26 @@ int main(void) {
   srand(117);
   int return_code = 0;
  
-  // return_code += !test_put_malloc_fail();
-  // return_code += !test_put_size();
-  // return_code += !test_get_errcode();
+  return_code += !test_put_malloc_fail();
+  return_code += !test_put_size();
+  return_code += !test_get_errcode();
 
-  // return_code += !test_create_and_destroy_dict();
-  // return_code += !test_create_failed();
-  // return_code += !test_create_dict_nodestroy();
-  // return_code += !test_pop_get();
-  // return_code += !test_put_NULL();
-  // return_code += !test_malloc_fail_create();
-  // return_code += !test_fail_insert();
-  // return_code += !test_put_get_delete_loop();
+  return_code += !test_create_and_destroy_dict();
+  return_code += !test_create_failed();
+  return_code += !test_create_dict_nodestroy();
+  return_code += !test_pop_get();
+  return_code += !test_put_NULL();
+  return_code += !test_malloc_fail_create();
+  return_code += !test_fail_insert();
+  return_code += !test_put_get_delete_loop();
 
   return_code += !test_insert_random_sequence(512, 117, false);
-  // return_code += !test_insert_random_sequence(512, 117, true);
-  // return_code += !test_insert_random_sequence(2048, 117, false);
-  // return_code += !test_insert_random_sequence(2048, 117, true);
-  // return_code += !test_insert_random_sequence(65536, 117, false);
-  // return_code += !test_insert_random_sequence(65536, 117, true);
-  // return_code += !test_insert_random_sequence(1048576, 117, false);
+  return_code += !test_insert_random_sequence(512, 117, true);
+  return_code += !test_insert_random_sequence(2048, 117, false);
+  return_code += !test_insert_random_sequence(2048, 117, true);
+  return_code += !test_insert_random_sequence(65536, 117, false);
+  return_code += !test_insert_random_sequence(65536, 117, true);
+  return_code += !test_insert_random_sequence(1048576, 117, false);
 
   if (return_code == 0) {
     printf("Todo ok!\n");
