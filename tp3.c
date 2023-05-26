@@ -23,17 +23,19 @@ struct dictionary {
   destroy_f destroy;
 };
 
-// funcion auxiliar para imprimir el diccionario
-// nota: funciona si estoy usando ints para los values, cc: cambiar el casteo en el printf
-void print_dict(dictionary_t* dict) {
-  for (uint32_t i = 0; i < dict->size; i++) {
-    if (dict->entries[i]) {
-      dictEntry_t *entry = dict->entries[i];
-      while (entry->next) {
-        printf("%u:   key: %s, value:    %d\n", i, entry->key, *((int*)entry->value));
-        entry = entry->next;
-      }
+void dictionary_print(dictionary_t *dictionary) {
+  if (dictionary == NULL) {
+    printf("Dictionary is NULL\n");
+    return;
+  }
+  for (uint32_t i = 0; i < dictionary->capacity; i++) {
+    dictEntry_t *entry = dictionary->entries[i];
+    printf("Index %u: ", i);
+    while (entry) {
+      printf("{Key: %s, Value: %d} ", entry->key, *((int*)entry->value));
+      entry = entry->next;
     }
+    printf("\n");
   }
 }
 
@@ -51,6 +53,8 @@ uint32_t FNV_hash(const char *key) {
   return hash;
 }
 // deberia probar distintas func de hashing y evaluar cual me da mejores resultados
+// cambiar la hash function y las varaibles globales deberían tener gran impacto 
+// sobre tanto la eficiencia temporal como de memoria
 
 // funcion auxiliar que devuelve el índice
 static uint32_t dictIndex(dictionary_t* dict, const char* key) {
@@ -58,10 +62,13 @@ static uint32_t dictIndex(dictionary_t* dict, const char* key) {
   return hash;
 }
 
+
+
+// funcion de rehashing, tiene en cuenta los parametros globales definidos
 bool rehash(dictionary_t *dictionary) {
-  if (dictionary == NULL) return false;
+  if (!dictionary) return false;
   uint32_t newCapacity = dictionary->capacity * RES_FACT;
-  dictEntry_t **newEntries = (dictEntry_t **)calloc(sizeof(dictEntry_t *), newCapacity);
+  dictEntry_t **newEntries = (dictEntry_t **) calloc(sizeof(dictEntry_t *), newCapacity);
   if (!newEntries) return false;
 
   for (uint32_t i = 0; i < dictionary->capacity; i++) {
@@ -80,15 +87,7 @@ bool rehash(dictionary_t *dictionary) {
     while (entry) {
       bool err = false;
       void *value = dictionary_get(dictionary, entry->key, &err);
-      if (!err) {
-        entry->value = value;
-      } else {
-        // Handle the error case where the key is not found in the original dictionary
-        // You can decide how to handle this situation based on your application's logic
-        // printf("Error: Key %s not found in original dictionary\n", entry->key);
-        
-        // no se bien que es este error, creo que no me cambia, osea lo puedo saltear
-      }
+      if (!err) entry->value = value;
       entry = entry->next;
     }
   }
@@ -99,7 +98,6 @@ bool rehash(dictionary_t *dictionary) {
   printf("===========rehashing: capacity = %u ===========\n", dictionary->capacity);
   return true;
 }
-
 
 
 
@@ -118,11 +116,13 @@ dictionary_t *dictionary_create(destroy_f destroy) {
   return dict;
 }
 
+
+
 bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   if (strlen(key) == 0 || dictionary == NULL)
     return false;
 
-  // si el size del diccionario está a >=0.75 del capacity hago rehash
+  // necesita rehash?
   if (dictionary->size >= dictionary->capacity * LOAD_FACT) {
     if (!rehash(dictionary)) return false;
   }
@@ -155,7 +155,7 @@ bool dictionary_put(dictionary_t *dictionary, const char *key, void *value) {
   newEntry->value = value;
   newEntry->next = NULL;
 
-  // agrego nuevas entradas al principio de la lista en casos de colision
+  // agrego nuevas entradas al principio de la lista en casos de colision 
   newEntry->next = dictionary->entries[hash];
   dictionary->entries[hash] = newEntry;
 
@@ -172,12 +172,10 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
   }
   uint32_t hash = dictIndex(dictionary, key);
   dictEntry_t *entry = dictionary->entries[hash];
-
   if (!entry) {
     *err = true;
     return NULL;
   }
-
   while (entry) {
     if (strcmp(entry->key, key) == 0) {
       *err = false;
@@ -185,10 +183,10 @@ void *dictionary_get(dictionary_t *dictionary, const char *key, bool *err) {
     }
     entry = entry->next;
   }
-
   *err = true;
   return NULL;
 }
+
 
 
 bool dictionary_delete(dictionary_t *dictionary, const char *key) {
@@ -227,39 +225,32 @@ void *dictionary_pop(dictionary_t *dictionary, const char *key, bool *err) {
       *err = false;
       return value;
     }
-
     prevEntry = entry;
     entry = entry->next;
   }
-
   *err = true;
   return NULL;
 }
 
 
+
 bool dictionary_contains(dictionary_t *dictionary, const char *key) {
-  if (strlen(key) == 0 || dictionary == NULL) {
-    return false;
-  }
-  uint32_t hash = dictIndex(dictionary, key);
-  dictEntry_t *entry = dictionary->entries[hash];
-  while (entry) {
-    if (strcmp(entry->key, key) == 0) {
-      return true;
-    }
-    entry = entry->next;
-  }
-  return false;
+  if (strlen(key) == 0 || dictionary == NULL) return false;
+  bool err = false;
+  void *value = dictionary_get(dictionary, key, &err);
+  return (!err && value != NULL);
 }
-// alternativa: puedo llamar a dictionary_get()
+
 
 
 size_t dictionary_size(dictionary_t *dictionary) {
   return dictionary->size;
 }
 
+
+
 void dictionary_destroy(dictionary_t *dictionary) {
-  // print_dict(dictionary);
+  dictionary_print(dictionary);
   for (uint32_t i = 0; i < dictionary->capacity; i++) {
     dictEntry_t* entry = dictionary->entries[i];
     while (entry != NULL) {
