@@ -1,6 +1,7 @@
 #include "tp3.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 // defino parametros globales
@@ -54,14 +55,13 @@ uint32_t FNV_hash(const char *key) {
   }
   return hash;
 }
-// deberia probar distintas func de hashing y evaluar cual me da mejores resultados
+// probar distintas func de hashing y evaluar cual me da mejores resultados
 // cambiar la hash function y las varaibles globales deberían tener gran impacto 
 // sobre tanto la eficiencia temporal como de memoria
 
 // funcion auxiliar que devuelve el índice
 static uint32_t dictIndex(dictionary_t* dict, const char* key) {
-  uint32_t hash = FNV_hash(key) % dict->capacity;
-  return hash;
+  return FNV_hash(key) % dict->capacity;
 }
 
 
@@ -86,16 +86,6 @@ bool rehash(dictionary_t *dictionary) {
       entry->next = newEntries[hash];
       newEntries[hash] = entry;
       entry = nextEntry; 
-    }
-  }
-
-  for (uint32_t i = 0; i < newCapacity; i++) {
-    dictEntry_t *entry = newEntries[i];
-    while (entry) {
-      bool err = false;
-      void *value = dictionary_get(dictionary, entry->key, &err);
-      if (!err) entry->value = value;
-      entry = entry->next;
     }
   }
 
@@ -197,7 +187,7 @@ bool dictionary_delete(dictionary_t *dictionary, const char *key) {
   bool err = false;
   void *value = dictionary_pop(dictionary, key, &err);
   if (!value) return false;
-  if (dictionary->destroy) free(value);
+  if (!dictionary->destroy) free(value);
   return true;
 }
 
