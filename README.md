@@ -1,4 +1,4 @@
-# dictionary: Trabajo práctico Nº3 de Algoritmos y estructuras de datos
+# Dictionary: Trabajo práctico Nº3 de Algoritmos y estructuras de datos
 
 ## Introducción
 El diccionario implementado en este trabajo práctico utiliza una estructura de datos basada en tablas de hashing para lograr un acceso eficiente a los elementos. Se emplea el método de encadenamiento (hashing abierto) para gestionar las colisiones, lo que garantiza un rendimiento estable incluso en situaciones de alta carga.
